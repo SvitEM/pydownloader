@@ -1,48 +1,34 @@
 .PHONY: all
-CONTAINER_NAME=centos
-BUILD_PLATFORM=linux/amd64
+BUILD_PLATFORM ?= linux/amd64
+PYTHON_VERSION ?= 3.8.10
+CONTAINER_NAME = centos-$(PYTHON_VERSION)-$(shell echo $(BUILD_PLATFORM) | sed 's/\//-/g')
+REQUIREMENTS_FILE ?= /home/requirements.txt
+DOWNLOAD_LIBS = /home/requirements
+
 build: 
-	@if [ -n $$(docker images -a -q $(CONTAINER_NAME))]; then \
-		echo "Image not exist, continue...";\
-	else\
-		echo "Image exist, deleting...";\
-		docker rmi $(CONTAINER_NAME);\
-    fi
-	$(eval PYTHON_VERSION := $(shell read -p "Enter python version (format "3.7.10" ): " input && echo $$input))
-	@echo "Prepare to download: $(PYTHON_VERSION)"
-	docker buildx build --platform $(BUILD_PLATFORM) --build-arg PYTON_VERSION=$(PYTHON_VERSION)  -t $(CONTAINER_NAME) .
-	
-.ONE_SHELL:
-download:
-	@if [ -n $$(docker images -a -q $(CONTAINER_NAME))]; then \
-		make build;\
-	else\
-		echo "Image exist, continue...";\
-    fi
-
-	@if [ -n $$(docker ps -a -q -f name=$(CONTAINER_NAME))]; then \
-		echo "Container not exist, continue...";\
-	else\
-		echo "Container exist, deleting...";\
-		docker rm centos;\
-    fi
-
-	@read -p "Enter lib name and version (format "catboost" or "catboost==0.22" or empty for requirements.txt): " DOWNLOAD_LIBS; \
-	if [ -z "$$DOWNLOAD_LIBS" ]; then \
-		echo "requirements donwloading...";\
-		DOWNLOAD_LIBS=requirements;\
-	    docker run --platform $(BUILD_PLATFORM) --name $(CONTAINER_NAME) $(CONTAINER_NAME) pip3 download -d $$DOWNLOAD_LIBS -r requirements.txt || echo "creating...";\
-		docker cp requirements.txt $(CONTAINER_NAME):/home/requirements.txt;\
+	- rm -r home/*;
+	- rm requirements.zip;
+	@if [ -z "$$(docker images -q $(CONTAINER_NAME))" ]; then \
+		echo "Image not exist, creating..."; \
+		echo "Build platform: PYTHON VERSION $(PYTHON_VERSION) FOR PLATFORM $(BUILD_PLATFORM)"; \
+		docker buildx build --platform $(BUILD_PLATFORM) --build-arg PYTHON_VERSION=$(PYTHON_VERSION) -t $(CONTAINER_NAME) .; \
 	else \
-		echo "$$DOWNLOAD_LIBS donwloading...";\
-	    docker run --platform $(BUILD_PLATFORM) --name $(CONTAINER_NAME) $(CONTAINER_NAME) pip3 download -d $$DOWNLOAD_LIBS  $$DOWNLOAD_LIBS ;\
+		echo "Image exists, continue..."; \
 	fi
-	docker start -ai $(CONTAINER_NAME);\
-	docker cp $(CONTAINER_NAME):home/$$DOWNLOAD_LIBS . ;\
-	docker stop $(CONTAINER_NAME);\
+	
+	@echo "Copying requirements..."
+	docker create --name temp_container $(CONTAINER_NAME) sleep 1; \
+	docker cp tmp/requirements_libs.txt temp_container:$(REQUIREMENTS_FILE); \
+	docker commit temp_container $(CONTAINER_NAME); \
+	docker rm temp_container;
 
+	@echo "Downloading libraries..."
+	docker run --platform $(BUILD_PLATFORM) --name download_container $(CONTAINER_NAME) pip3 download -d $(DOWNLOAD_LIBS) -r $(REQUIREMENTS_FILE); 
 
-uninstall:
-	docker rm $(CONTAINER_NAME)
-	docker rmi $(CONTAINER_NAME)
+	@echo "Creating archive..."
+	docker start -ai download_container; 
+	docker cp download_container:$(DOWNLOAD_LIBS) home/requirements; 
+	docker cp download_container:$(REQUIREMENTS_FILE) home/requirements.txt; 
+	docker rm download_container;
+	zip -r requirements.zip home/*
 	@echo "Done."

@@ -1,1 +1,7 @@
 /.DS_Store
+Makefile_old
+tmp/*
+home/*
+download/*
+__pycache__
+requirements.zip
