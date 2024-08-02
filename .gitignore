@@ -5,3 +5,6 @@ home/*
 download/*
 __pycache__
 requirements.zip
+downloads/*
+requirements_*
+celerybeat-schedule.db

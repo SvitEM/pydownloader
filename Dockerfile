@@ -51,6 +51,7 @@ RUN /usr/local/bin/python get-pip.py
 RUN /usr/local/bin/python -m pip install --upgrade pip
 RUN rm -f get-pip.py
 
+RUN mkdir /home/requirements
 # Set the working directory and command
 WORKDIR /home
 CMD ["bash", "-c", "echo Ready to use!"]

@@ -73,6 +73,8 @@ button {
     color: white;
     border: none;
     padding: 12px;
+    margin-top: 6px;
+    margin-bottom: 6px;
     width: 100%;
     border-radius: 4px;
     cursor: pointer;

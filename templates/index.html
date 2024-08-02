@@ -17,35 +17,37 @@
         <div class="alert alert-success">{{ success_message }}</div>
         {% endif %}
 
+        <!-- Display the number of tasks in queue -->
+        <div class="alert alert-info">
+            <strong>В очереди:</strong> {{ num_tasks }} задач(и)
+        </div>
+
         <!-- Form to submit platform, python version, and requirements -->
         <form id="form">
             <div class="form-group">
                 <label for="platform">Platform Selector</label>
                 <select name="platform" id="platform" required>
                     <option value="linux/amd64">linux/amd64</option>
-                    <option value="linux/i386">linux/i386</option>
-                    <option value="linux/arm/v5">linux/arm/v5</option>
-                    <option value="linux/arm/v6">linux/arm/v6</option>
-                    <option value="linux/arm/v7">linux/arm/v7</option>
-                    <option value="linux/arm64">linux/arm64</option>
-                    <option value="linux/ppc64le">linux/ppc64le</option> 
-                    <option value="linux/s390x">linux/s390x</option>
+                    <!-- <option value="linux/i386">linux/i386</option> -->
+                    <!-- <option value="linux/arm/v5">linux/arm</option> -->
+                    <!-- <option value="linux/arm64">linux/arm64</option> -->
+                    <!-- <option value="linux/ppc64le">linux/ppc64le</option>  -->
+                    <!-- <option value="linux/s390x">linux/s390x</option> -->
                 </select>
             </div>
             <div class="form-group">
                 <label for="python_version">Python Version</label>
-                <input type="text" name="python_version" id="python_version" placeholder="e.g., 3.9.1" value="3.8.17" required>
+                <input type="text" name="python_version" id="python_version" placeholder="e.g., 3.9.1" required>
             </div>
             <div class="form-group">
                 <label for="requirements">Requirements.txt</label>
-                <textarea name="requirements" id="requirements" rows="5" placeholder="Enter requirements here..." required>numpy==2.0.1
-fastapi
-                </textarea>
+                <textarea name="requirements" id="requirements" rows="5" placeholder="Enter requirements here..." required></textarea>
             </div>
             <button onclick="submit_form()">Submit</button>
         </form>
+        <a id="download-link" href="#" style="display: none;"><button>Download Zip</button></a><!-- Download link -->
+        <h3>Console Output</h3>
         <div class="console-output">
-            <h3>Console Output</h3>
             <pre id="console"></pre>
         </div>
         
@@ -60,17 +62,23 @@ fastapi
 
                 // Open a WebSocket connection to the server
                 const websocket = new WebSocket(`ws://${window.location.host}/ws/console/${platform}/${pythonVersion}/${requirements}`);
-                // const websocket = new WebSocket(`ws://${window.location.host}/ws/console/${platform}`);
 
                 // Function to handle incoming messages
                 websocket.onmessage = function(event) {
-                    consoleElement.textContent += event.data + "\n";
-                    consoleElement.scrollTop = consoleElement.scrollHeight; // Auto-scroll
+                    const message = event.data;
+                    if (message.startsWith('/download/')) {
+                        downloadLink = document.getElementById('download-link');
+                        downloadLink.setAttribute('href', window.location.origin + message);
+                        downloadLink.style.display = 'block';
+                    } else {
+                        consoleElement.textContent += message + "\n";
+                        consoleElement.scrollTop = consoleElement.scrollHeight; // Auto-scroll
+                    }
                 };
 
                 // Function to handle WebSocket closure
                 websocket.onclose = function(event) {
-                    consoleElement.textContent += "\nWebSocket closed.";
+                    consoleElement.textContent += "\nWaiting for a new request.\n";
                 };
 
                 // Prevent form submission to allow WebSocket processing

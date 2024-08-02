@@ -1,13 +1,14 @@
 from fastapi import FastAPI, Request, Form, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-import re
-import subprocess
+from celery.result import AsyncResult
 import uvicorn
 import asyncio
+from tasks import create_and_download_requirements, celery_app
+import os
+
 from requirements_match import is_requirements_format
-import urllib.parse
 
 app = FastAPI()
 
@@ -17,66 +18,41 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Set up templates
 templates = Jinja2Templates(directory="templates")
 
+# Константы
+ZIP_STORAGE_DIR = 'zips'
 
-def prep_input_data(platform: str, python_version: str, requirements, str) -> list:
-    if platform not in platforms_list:
-        platform = None
-    major, minor, _ = python_version.split('.')
-    if int(major) != 3 or int(minor) < 8:
-        python_version = None
-    return platform, python_version
-        
 @app.get("/", response_class=HTMLResponse)
 async def read_form(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    # Получаем количество задач в очереди
+    task_count = celery_app.control.inspect().active()
+    num_tasks = sum(len(v) for v in task_count.values()) if task_count else 0
+
+    return templates.TemplateResponse("index.html", {"request": request, "num_tasks": num_tasks})
 
 @app.websocket("/ws/console/{platform}/{python_version}/{requirements}")
 async def websocket_endpoint(websocket: WebSocket, platform: str, python_version: str, requirements: str):
-    requirements_file = "home/requirements_libs.txt"
     await websocket.accept()
 
     try:
-        # Define the command to run the Makefil
-        platform = '/'.join(platform.split('%0A'))
-        print(platform)
+        # Очередь задачи через Celery
+        if not is_requirements_format:
+            raise ValueError("Wrong requirements format")
+        if platform
 
-        # Validate input data
-        platform, python_version = prep_input_data(platform, python_version)
-        if not platform:
-            raise ValueError(f"This script does not work on {platform} platform. Use platform from supported list.")
-        if not python_version:
-            raise ValueError(f"This script does not work on Python {python_version}. The minimum supported Python version is 3.8.")
-
-        with open(requirements_file, 'w+') as f:
-            for lib_name in requirements.split('\n'):
-                if is_requirements_format(lib_name):
-                    f.write(requirements)
-
-
-        command = ['make', f"BUILD_PLATFORM={platform}", f"PYTHON_VERSION={python_version}", f"REQUIREMENTS_FILE={requirements_file}"]
-
-        # Open the subprocess and run the Makefile
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-        # Continuously read from stdout and print each line immediately
-        while True:
-            line = process.stdout.readline()
-            if not line:
-                break
-            await websocket.send_text(line.strip())  # Strip to remove extra newline
-            
-            line = process.stdout.readline()
-            if line: 
-                line = line.strip()
-                if "requirements" not in line.strip():
-                    await websocket.send_text(line.strip())  # Strip to remove extra newline
-
-        # Wait for the process to finish and check the return code
-        return_code = process.wait()
-        if return_code == 0:
-            print("Makefile ran successfully.")
+        task = create_and_download_requirements.delay(platform, python_version, requirements)
+        
+        # Ожидание завершения задачи
+        while not task.ready():
+            await websocket.send_text("Задача в очереди...")
+            await asyncio.sleep(5)
+        
+        # Получение результата
+        if task.successful():
+            zip_path = task.result
+            await websocket.send_text("Задача выполнена. Архив готов для скачивания.")
+            await websocket.send_text(f"/download/{os.path.basename(zip_path)}")
         else:
-            print(f"Makefile failed with return code {return_code}.")
+            await websocket.send_text(f"Произошла ошибка при выполнении задачи.\n {task.info}")
 
     except WebSocketDisconnect:
         print("WebSocket disconnected")
@@ -87,7 +63,12 @@ async def websocket_endpoint(websocket: WebSocket, platform: str, python_version
     finally:
         await websocket.close()
 
+@app.get("/download/{zip_filename}")
+async def download_file(zip_filename: str):
+    zip_path = os.path.join(ZIP_STORAGE_DIR, zip_filename)
+    if os.path.exists(zip_path):
+        return FileResponse(zip_path, media_type='application/zip', filename=zip_filename)
+    return {"error": "Файл не найден"}
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000, 
-                # ssl_keyfile="key.pem", ssl_certfile="cert.pem"
-                )
+    uvicorn.run(app, host="127.0.0.1", port=8000)
