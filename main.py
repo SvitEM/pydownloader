@@ -37,8 +37,7 @@ async def websocket_endpoint(websocket: WebSocket, platform: str, python_version
         # Очередь задачи через Celery
         if not is_requirements_format:
             raise ValueError("Wrong requirements format")
-        if platform
-
+        # if platform
         task = create_and_download_requirements.delay(platform, python_version, requirements)
         
         # Ожидание завершения задачи
@@ -53,7 +52,6 @@ async def websocket_endpoint(websocket: WebSocket, platform: str, python_version
             await websocket.send_text(f"/download/{os.path.basename(zip_path)}")
         else:
             await websocket.send_text(f"Произошла ошибка при выполнении задачи.\n {task.info}")
-
     except WebSocketDisconnect:
         print("WebSocket disconnected")
 
@@ -62,6 +60,8 @@ async def websocket_endpoint(websocket: WebSocket, platform: str, python_version
 
     finally:
         await websocket.close()
+        for i in os.listdir('downloads'):
+            os.remove(i)
 
 @app.get("/download/{zip_filename}")
 async def download_file(zip_filename: str):

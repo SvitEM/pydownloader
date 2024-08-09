@@ -7,8 +7,6 @@ REQUIREMENTS_FILE_PATH ?= downloads/dcd7f7f1-a2c3-4296-8d13-5c693d2d6271
 DOWNLOAD_LIBS = /home/requirements
 
 build: 
-	- rm -r downloads/*;
-	# - rm requirements.zip;
 	- docker rm download_container;
 	@if [ -z "$$(docker images -q $(CONTAINER_NAME))" ]; then \
 		echo "Image not exist, creating..."; \
