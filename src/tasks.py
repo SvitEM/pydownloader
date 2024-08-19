@@ -9,6 +9,7 @@ import time
 import uuid
 import logging
 
+from requirements_match import is_requirements_format
 # Константы
 DOWNLOAD_DIR = 'downloads'
 REQUIREMENTS_DIR = 'requirements'
@@ -19,7 +20,11 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 os.makedirs(ZIP_STORAGE_DIR, exist_ok=True)
 
 # Создаем приложение Celery
-celery_app = Celery('tasks', broker='redis://localhost:6379/0', backend='redis://localhost:6379/1')
+celery_app = Celery(
+    'tasks', 
+    broker=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'), 
+    backend=os.getenv('CELERY_BACKEND_URL', 'redis://localhost:6379/1')
+)
 
 @celery_app.task
 def create_and_download_requirements(platform: str, python_version: str, requirements: str):
@@ -32,12 +37,16 @@ def create_and_download_requirements(platform: str, python_version: str, require
     os.makedirs(task_download_dir, exist_ok=True)
 
     with open(requirements_file, 'w') as f:
-        f.write(requirements)
+        line = f.readline()
+        if is_requirements_format(line):
+            f.write(line)
 
     # Команда make для скачивания библиотек
     platform = platform.replace("%0A", "/")
 
     command = ['make', 
+               '-f',
+               'make_container.mf',
                f"BUILD_PLATFORM={platform}", 
                f"PYTHON_VERSION={python_version}", 
                f"REQUIREMENTS_FILE_PATH={task_download_dir}"]
@@ -53,8 +62,6 @@ def create_and_download_requirements(platform: str, python_version: str, require
         
         line_err = process.stderr.readline()
         if line_err: 
-            # if "No matching distribution found" in line_err.strip():
-            #     raise ValueError(f'')
             errors.append(line_err.strip())
             logging.error(line_err.strip())  # Strip to remove extra newline
         if not line or not line_err:

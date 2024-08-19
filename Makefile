@@ -1,32 +1,39 @@
-.PHONY: all
-BUILD_PLATFORM ?= linux/amd64
-PYTHON_VERSION ?= 3.8.17
+# Target to setup the environment
+setup:
+	python3.11 -m venv venv;
+	# Activate the virtual environment
+	source venv/bin/activate;
+	# Install Python dependencies from requirements.txt
+	python3.11 -m pip install -r requirements.txt;
 
-CONTAINER_NAME = centos-$(PYTHON_VERSION)-$(BUILD_PLATFORM)
-REQUIREMENTS_FILE_PATH ?= downloads/dcd7f7f1-a2c3-4296-8d13-5c693d2d6271
-DOWNLOAD_LIBS = /home/requirements
+# Default target to start all services
+start: start_redis start_uvicorn start_celery_worker1 start_celery_worker2
 
-build: 
-	- docker rm download_container;
-	@if [ -z "$$(docker images -q $(CONTAINER_NAME))" ]; then \
+start_redis:
+	source venv/bin/activate;
+	@if [ -z "docker images -q redis_pydownloder" ]; then \
 		echo "Image not exist, creating..."; \
-		echo "Build platform: PYTHON VERSION $(PYTHON_VERSION) FOR PLATFORM $(BUILD_PLATFORM)"; \
-		docker buildx build --platform $(BUILD_PLATFORM) --build-arg PYTHON_VERSION=$(PYTHON_VERSION) -t $(CONTAINER_NAME) .; \
+		docker run -d --name redis_pydownloder -p 6379:6379 redis/redis-stack-server:latest;\
 	else \
 		echo "Image exists, continue..."; \
+		docker start redis_pydownloder;\
 	fi
-	
-	@echo "Copying requirements..."
-	docker create --name temp_container $(CONTAINER_NAME);
-	docker cp $(REQUIREMENTS_FILE_PATH)/requirements.txt temp_container:$(DOWNLOAD_LIBS)/requirements.txt;
-	docker commit temp_container $(CONTAINER_NAME); 
-	docker rm temp_container;
 
-	@echo "Downloading libraries..."
-	docker run --platform $(BUILD_PLATFORM) --name download_container $(CONTAINER_NAME) pip3 download -d $(DOWNLOAD_LIBS) -r $(DOWNLOAD_LIBS)/requirements.txt; 
+# Target to start Uvicorn
+start_uvicorn:
+	uvicorn main:app --reload --port 8000 --workers 4 &
 
-	@echo "Creating archive..."
-	docker start -ai download_container; 
-	docker cp download_container:$(DOWNLOAD_LIBS)/. $(REQUIREMENTS_FILE_PATH); 
-	docker rm download_container;
-	@echo "Done."
+# Target to start Celery Worker 1
+start_celery_worker1:
+	celery -A tasks.celery_app worker --loglevel=info &
+
+# Target to start Celery Worker 2
+start_celery_worker2:
+	celery -A tasks.celery_app beat --loglevel=info &
+
+# Target to stop all background processes (optional)
+.PHONY: stop
+stop:
+	pkill -f "uvicorn main:app"
+	pkill -f "celery"
+	docker stop redis_pydownloder

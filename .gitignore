@@ -2,9 +2,11 @@
 Makefile_old
 tmp/*
 home/*
+venv/*
 download/*
 __pycache__
 requirements.zip
 downloads/*
 requirements_*
 celerybeat-schedule.db
+celerybeat-schedule

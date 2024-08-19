@@ -2,7 +2,7 @@
 FROM centos:7
 
 # Set the container environment
-ENV container docker
+ENV container=docker
 
 # Argument for Python version
 ARG PYTHON_VERSION
@@ -18,7 +18,6 @@ RUN yum update -y
 RUN yum install -y epel-release 
 RUN yum install -y gcc openssl-devel bzip2-devel libffi-devel \
                    make wget tar xz 
-# RUN  yum clean all
 
 # Install OpenSSL 1.1 for Python 3.11 compatibility
 RUN yum install -y openssl11 openssl11-devel
@@ -26,9 +25,6 @@ RUN yum clean all
 RUN ln -sf /usr/include/openssl11 /usr/include/openssl
 RUN ln -sf /usr/lib64/libssl.so.1.1 /usr/lib64/libssl.so
 RUN ln -sf /usr/lib64/libcrypto.so.1.1 /usr/lib64/libcrypto.so
-
-# Copy requirements file
-COPY tmp/requirements_libs.txt /home/requirements.txt
 
 # Download and install Python
 WORKDIR /opt
@@ -51,7 +47,7 @@ RUN /usr/local/bin/python get-pip.py
 RUN /usr/local/bin/python -m pip install --upgrade pip
 RUN rm -f get-pip.py
 
-RUN mkdir /home/requirements
+RUN mkdir /home/requirements/
 # Set the working directory and command
 WORKDIR /home
-CMD ["bash", "-c", "echo Ready to use!"]
+CMD ["pip3", "download", "-d", "/home/downloads", "-r", "/home/downloads/requirements.txt"]

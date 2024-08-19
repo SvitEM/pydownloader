@@ -1,0 +1,24 @@
+.PHONY: all
+BUILD_PLATFORM ?= linux/amd64
+PYTHON_VERSION ?= 3.9.10
+
+CONTAINER_NAME = centos-$(PYTHON_VERSION)-$(BUILD_PLATFORM)
+REQUIREMENTS_FILE_PATH ?= downloads/2e65c99b-858c-4957-861b-7574ebcd0fed
+DOWNLOAD_LIBS = /home/requirements
+
+build: 
+	- docker rm download_container;
+	@if [ -z "$$(docker images -q $(CONTAINER_NAME))" ]; then \
+		echo "Image not exist, creating..."; \
+		echo "Build platform: PYTHON VERSION $(PYTHON_VERSION) FOR PLATFORM $(BUILD_PLATFORM)"; \
+		docker buildx build --platform $(BUILD_PLATFORM) --build-arg PYTHON_VERSION=$(PYTHON_VERSION) -t $(CONTAINER_NAME) .; \
+	else \
+		echo "Image exists, continue..."; \
+	fi
+
+	@echo "Downloading libraries..."
+	docker run -v $(realpath $(REQUIREMENTS_FILE_PATH))/:$(DOWNLOAD_LIBS) --platform $(BUILD_PLATFORM) --name download_container $(CONTAINER_NAME) pip3 download -d $(DOWNLOAD_LIBS) -r $(DOWNLOAD_LIBS)/requirements.txt; 
+	
+	@echo "Creating archive..."
+	docker rm download_container;
+	@echo "Done."

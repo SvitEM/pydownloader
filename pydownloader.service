@@ -1,0 +1,14 @@
+[Unit]
+Description=Start Uvicorn and Celery workers
+After=network.target
+
+[Service]
+User=user 
+Group=group
+WorkingDirectory=/path/to/your/project
+ExecStart=/bin/bash /path/to/your/project/start_services.sh
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
