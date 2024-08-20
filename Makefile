@@ -21,7 +21,7 @@ start_redis:
 
 # Target to start Uvicorn
 start_uvicorn:
-	uvicorn main:app --reload --port 8000 --workers 4 &
+	uvicorn main:app --reload --port 8000 --workers 1 &
 
 # Target to start Celery Worker 1
 start_celery_worker1:
