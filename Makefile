@@ -1,39 +1,42 @@
 # Target to setup the environment
+.PHONY: setup
 setup:
-	python3.11 -m venv venv;
-	# Activate the virtual environment
-	source venv/bin/activate;
-	# Install Python dependencies from requirements.txt
-	python3.11 -m pip install -r requirements.txt;
+        python3.11 -m venv venv
+        # Activate the virtual environment and install dependencies
+        . venv/bin/activate && pip install -r requirements.txt
 
 # Default target to start all services
-start: start_redis start_uvicorn start_celery_worker1 start_celery_worker2
+.PHONY: start
+start: start_redis start_uvicorn start_celery_worker start_celery_beat
 
+.PHONY: start_redis
 start_redis:
-	source venv/bin/activate;
-	@if [ -z "docker images -q redis_pydownloder" ]; then \
-		echo "Image not exist, creating..."; \
-		docker run -d --name redis_pydownloder -p 6379:6379 redis/redis-stack-server:latest;\
-	else \
-		echo "Image exists, continue..."; \
-		docker start redis_pydownloder;\
-	fi
+        @if [ -z "docker images -q redis_pydownloder" ]; then \
+                echo "Image does not exist, creating..."; \
+                docker run -d --name redis_pydownloder -p 6379:6379 redis/redis-stack-server:latest; \
+        else \
+                echo "Image exists, starting container..."; \
+                docker start redis_pydownloder; \
+        fi
 
 # Target to start Uvicorn
+.PHONY: start_uvicorn
 start_uvicorn:
-	uvicorn main:app --reload --port 8000 --workers 1 &
+        . venv/bin/activate && uvicorn main:app --reload --port 8000 --workers 1 &
 
-# Target to start Celery Worker 1
-start_celery_worker1:
-	celery -A tasks.celery_app worker --loglevel=info &
+# Target to start Celery Worker
+.PHONY: start_celery_worker
+start_celery_worker:
+        . venv/bin/activate && celery -A src.tasks.celery_app worker --loglevel=info &
 
-# Target to start Celery Worker 2
-start_celery_worker2:
-	celery -A tasks.celery_app beat --loglevel=info &
+# Target to start Celery Beat
+.PHONY: start_celery_beat
+start_celery_beat:
+        . venv/bin/activate && celery -A src.tasks.celery_app beat --loglevel=info &
 
-# Target to stop all background processes (optional)
+# Target to stop all background processes
 .PHONY: stop
 stop:
-	pkill -f "uvicorn main:app"
-	pkill -f "celery"
-	docker stop redis_pydownloder
+        pkill -f "uvicorn main:app" &
+        pkill -f "celery" &
+        docker stop redis_pydownloder

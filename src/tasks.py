@@ -9,7 +9,7 @@ import time
 import uuid
 import logging
 
-from requirements_match import is_requirements_format
+from src.requirements_match import is_requirements_format
 # Константы
 DOWNLOAD_DIR = 'downloads'
 REQUIREMENTS_DIR = 'requirements'
