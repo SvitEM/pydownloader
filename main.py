@@ -35,11 +35,12 @@ async def library_checker(websocket: WebSocket, requirements: str):
     await websocket.accept()
     file_name = 'requirements_2.txt'
     with open(file_name, 'w') as f:
-        line = f.readline()
-        if is_requirements_format(line):
-            f.write(line)
-        else:
-            raise ValueError("Wrong requirements format")
+       	lines = requirements.split()
+        for line in lines:
+            if is_requirements_format(line):
+                f.write(line)
+            else:
+                raise ValueError("Wrong requirements format")
         
     try:
         resp = custom_cli(file_name=file_name)
@@ -69,6 +70,7 @@ async def websocket_endpoint(websocket: WebSocket, platform: str, python_version
         if task.successful():
             zip_path = task.result
             await websocket.send_text("Task Done. Archive is ready.")
+            print(zip_path)
             await websocket.send_text(f"/download/{os.path.basename(zip_path)}")
         else:
             raise Exception(task.info)
@@ -80,6 +82,7 @@ async def websocket_endpoint(websocket: WebSocket, platform: str, python_version
 
     finally:
         await websocket.close()
+        print(zip_path)
         for root, dirs, files in os.walk(f"/download/{os.path.basename(zip_path)}", topdown=False):
             for name in files:
                 os.remove(os.path.join(root, name))

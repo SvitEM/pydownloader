@@ -37,9 +37,10 @@ def create_and_download_requirements(platform: str, python_version: str, require
     os.makedirs(task_download_dir, exist_ok=True)
 
     with open(requirements_file, 'w') as f:
-        line = f.readline()
-        if is_requirements_format(line):
-            f.write(line)
+        lines = requirements.split()
+        for line in lines:
+            if is_requirements_format(line):
+                f.write(line)
 
     # Команда make для скачивания библиотек
     platform = platform.replace("%0A", "/")

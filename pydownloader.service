@@ -3,12 +3,13 @@ Description=Start Uvicorn and Celery workers
 After=network.target
 
 [Service]
-User=user 
-Group=group
-WorkingDirectory=/path/to/your/project
-ExecStart=/bin/bash /path/to/your/project/start_services.sh
+User=User_name 
+Group=Group_name
+WorkingDirectory=/path/to/project/pydownloader
+ExecStart=/path/to/project/pydownloader/run_service.sh
 Restart=always
 RestartSec=3
+Type=simple
 
 [Install]
 WantedBy=multi-user.target

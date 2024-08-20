@@ -1,9 +1,3 @@
-# Target to setup the environment and install requirements
-.PHONY: setup
-setup:
-	python3.11 -m venv venv
-	. venv/bin/activate && pip install -r requirements.txt
-
 # Default target to start all services
 .PHONY: start
 start: start_redis start_uvicorn start_celery_worker start_celery_beat
@@ -39,3 +33,9 @@ stop:
 	pkill -f "uvicorn main:app" &
 	pkill -f "celery" &
 	docker stop redis_pydownloder
+
+# Target to setup the environment and install requirements
+.PHONY: setup
+setup:
+	python3.11 -m venv venv
+	. venv/bin/activate && pip install -r requirements.txt
