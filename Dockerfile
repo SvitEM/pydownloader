@@ -15,6 +15,8 @@ rm -f /lib/systemd/system/anaconda.target.wants/*;
 #Prep toinstall python
 ARG PYTON_VERSION=3.8.17
 ENV PYTON_VERSION_=${PYTON_VERSION}
+COPY myrepo.repo /etc/yum.repos.d/CentOS-Base.repo
+RUN yum clean all
 RUN yum install gcc openssl-devel bzip2-devel libffi-devel gzip make -y
 RUN yum install wget tar -y
 WORKDIR /opt
