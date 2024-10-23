@@ -1,6 +1,7 @@
 .PHONY: all
 CONTAINER_NAME=centos
 BUILD_PLATFORM=linux/amd64
+PYTHON_VERSION=3.8.17
 build: 
 	@if [ -n $$(docker images -a -q $(CONTAINER_NAME))]; then \
 		echo "Image not exist, continue...";\
@@ -8,7 +9,7 @@ build:
 		echo "Image exist, deleting...";\
 		docker rmi $(CONTAINER_NAME);\
     fi
-	$(eval PYTHON_VERSION := $(shell read -p "Enter python version (format "3.7.10" ): " input && echo $$input))
+	$(eval PYTHON_VERSION := $(shell read -p Enter python version (format "3.8.17", minimum version 3.8.17): " input && echo $$input))
 	@echo "Prepare to download: $(PYTHON_VERSION)"
 	docker buildx build --platform $(BUILD_PLATFORM) --build-arg PYTON_VERSION=$(PYTHON_VERSION)  -t $(CONTAINER_NAME) .
 	
