@@ -13,12 +13,13 @@ rm -f /lib/systemd/system/basic.target.wants/*;\
 rm -f /lib/systemd/system/anaconda.target.wants/*;
 
 #Prep toinstall python
-ARG PYTON_VERSION
+ARG PYTON_VERSION=3.8.17
 ENV PYTON_VERSION_=${PYTON_VERSION}
 RUN yum install gcc openssl-devel bzip2-devel libffi-devel gzip make -y
 RUN yum install wget tar -y
 WORKDIR /opt
-RUN wget https://www.python.org/ftp/python/${PYTON_VERSION_}/Python-${PYTON_VERSION_}.tgz
+RUN wget https://mirrors.huaweicloud.com/python/${PYTON_VERSION_}/Python-${PYTON_VERSION_}.tgz
+# RUN wget https://www.python.org/ftp/python/${PYTON_VERSION_}/Python-${PYTON_VERSION_}.tgz
 RUN tar xzf Python-${PYTON_VERSION}.tgz
 WORKDIR /opt/Python-${PYTON_VERSION}
 RUN ./configure --enable-optimizations
