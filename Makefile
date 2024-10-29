@@ -9,7 +9,7 @@ build:
 		echo "Image exist, deleting...";\
 		docker rmi $(CONTAINER_NAME);\
     fi
-	$(eval PYTHON_VERSION := $(shell read -p Enter python version (format "3.8.17", minimum version 3.8.17): " input && echo $$input))
+	$(eval PYTHON_VERSION := $(shell read -p "Enter python version (format 3.8.17, minimum version 3.8.17):" input && echo $$input))
 	@echo "Prepare to download: $(PYTHON_VERSION)"
 	docker buildx build --platform $(BUILD_PLATFORM) --build-arg PYTON_VERSION=$(PYTHON_VERSION)  -t $(CONTAINER_NAME) .
 	

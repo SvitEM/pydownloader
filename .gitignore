@@ -1,1 +1,5 @@
 /.DS_Store
+downloads/*
+src
+__pycache__
+venv/*
