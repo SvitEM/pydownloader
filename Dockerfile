@@ -1,39 +1,49 @@
+# Use CentOS 7 as the base image
 FROM centos:7
 
-#Init centos
-ENV container docker
-RUN (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i == \
-systemd-tmpfiles-setup.service ] || rm -f $i; done); \
-rm -f /lib/systemd/system/multi-user.target.wants/*;\
-rm -f /etc/systemd/system/*.wants/*;\
-rm -f /lib/systemd/system/local-fs.target.wants/*; \
-rm -f /lib/systemd/system/sockets.target.wants/*udev*; \
-rm -f /lib/systemd/system/sockets.target.wants/*initctl*; \
-rm -f /lib/systemd/system/basic.target.wants/*;\
-rm -f /lib/systemd/system/anaconda.target.wants/*;
+# Update the repository configuration to use the vault.centos.org mirror
+RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* && \
+    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
 
-#Prep toinstall python
-ENV PYTON_VERSION 3.8.17
-COPY myrepo.repo /etc/yum.repos.d/CentOS-Base.repo
-RUN yum clean all
-RUN yum install gcc openssl-devel bzip2-devel libffi-devel gzip make -y
-RUN yum install wget tar -y
-WORKDIR /opt
-RUN wget https://mirrors.huaweicloud.com/python/${PYTON_VERSION}/Python-${PYTON_VERSION}.tgz
-# RUN wget https://www.python.org/ftp/python/${PYTON_VERSION}/Python-${PYTON_VERSION}.tgz
-RUN tar xzf Python-${PYTON_VERSION}.tgz
-WORKDIR /opt/Python-${PYTON_VERSION}
-RUN ./configure --enable-optimizations
-RUN make altinstall
-RUN rm -f /opt/Python-${PYTON_VERSION}.tgz
+# Define the Python version as a build argument, defaulting to Python 3.10 if not specified
+ARG PYTHON_VERSION=3.10.12
+ENV PYTON_VERSION=${PYTON_VERSION}
+ARG OPENSSL_VERSION=1.1.1w
 
-#create alias for specific version
-RUN alias python${PYTON_VERSION}=/opt/Python-${PYTON_VERSION}/python
+# Install dependencies required to build Python and OpenSSL
+RUN yum -y update && \
+    yum -y groupinstall "Development Tools" && \
+    yum -y install wget bzip2-devel libffi-devel zlib-devel glibc glibc-devel && \
+    yum clean all
 
-#Install pip
-RUN curl https://bootstrap.pypa.io/get-pip.py --output get-pip.py
-RUN /opt/Python-${PYTON_VERSION}/python get-pip.py
-RUN /opt/Python-${PYTON_VERSION}/python -m pip install --upgrade pip
+# Install OpenSSL from source
+RUN wget https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz && \
+    tar -zxf openssl-${OPENSSL_VERSION}.tar.gz && \
+    cd openssl-${OPENSSL_VERSION} && \
+    ./config --prefix=/usr/local/openssl --openssldir=/usr/local/openssl && \
+    make && make install && \
+    cd .. && rm -rf openssl-${OPENSSL_VERSION}*
 
-WORKDIR /home
-CMD ['echo "Ready to use!"']
+# Update the shared library cache with the new OpenSSL library
+RUN echo "/usr/local/openssl/lib" >> /etc/ld.so.conf.d/openssl-${OPENSSL_VERSION}.conf && ldconfig
+
+# Download and install the specified Python version with the new OpenSSL
+RUN wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz && \
+    tar xzf Python-${PYTHON_VERSION}.tgz && \
+    cd Python-${PYTHON_VERSION} && \
+    ./configure --enable-optimizations --with-openssl=/usr/local/openssl && \
+    make altinstall && \
+    cd .. && rm -rf Python-${PYTHON_VERSION}*
+
+# Set the installed Python version as the default for python3 and pip3 commands
+RUN ln -s /usr/local/bin/python${PYTHON_VERSION:0:4} /usr/bin/python3 && \
+    ln -s /usr/local/bin/pip${PYTHON_VERSION:0:4} /usr/bin/pip3
+
+# Upgrade pip to ensure SSL works correctly
+RUN python3 -m ensurepip && python3 -m pip install --upgrade pip
+
+# Verify the installation
+RUN python3 --version && pip3 --version
+
+# Set the default command to bash
+CMD ["/bin/bash"]
