@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pydownloader</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Pydownloader</h1>
+
+        <!-- Display any error or success messages -->
+        {% if error_message %}
+        <div class="alert alert-error">{{ error_message }}</div>
+        {% elif success_message %}
+        <div class="alert alert-success">{{ success_message }}</div>
+        {% endif %}
+
+        <!-- Display the number of tasks in queue -->
+        <div class="alert alert-info">
+            <strong>В очереди:</strong> {{ num_tasks }} задач(и)
+        </div>
+
+        <!-- Form to submit platform, python version, and requirements -->
+        <form id="form">
+            <div class="form-group">
+                <label for="platform">Platform Selector</label>
+                <select name="platform" id="platform" required>
+                    <option value="linux/amd64">linux/amd64</option>
+                    <!-- <option value="linux/i386">linux/i386</option> -->
+                    <!-- <option value="linux/arm/v5">linux/arm</option> -->
+                    <!-- <option value="linux/arm64">linux/arm64</option> -->
+                    <!-- <option value="linux/ppc64le">linux/ppc64le</option>  -->
+                    <!-- <option value="linux/s390x">linux/s390x</option> -->
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="python_version">Python Version</label>
+                <input type="text" name="python_version" id="python_version" placeholder="e.g., 3.9.1" value="3.9.10" required>
+            </div>
+            <div class="form-group">
+                <label for="requirements">Requirements.txt</label>
+                <textarea name="requirements" id="requirements" rows="5" placeholder="Enter requirements here..." required>numpy==2.0.1</textarea>
+            </div>
+        </form>
+        <a id="check-link" href="#" style="display: block;" onclick="check_vulnerabilities()"><button>Check vulnerabilities</button></a><!-- Check link -->
+        <a id="create-link" href="#" style="display: block;" onclick="submit_form()"><button>Create zip</button></a><!-- Download link -->
+        <a id="download-link" href="#" style="display: none;"><button>Download Zip</button></a><!-- Download link -->
+        <h3>Console Output</h3>
+        <div class="console-output">
+            <pre id="console" style="min-width: max-content;"></pre>
+        </div>
+        
+        <!-- WebSocket script to receive and display real-time output -->
+        <script>
+            // Common function to set up WebSocket and handle messages
+            function setupWebSocket(url, messageHandler) {
+                const ws = new WebSocket(url);
+                const consoleElement = document.getElementById('console');
+            
+                ws.onmessage = function(event) {
+                    messageHandler(event.data);
+                };
+            
+                ws.onclose = function(event) {
+                    consoleElement.textContent += "\nWaiting for a new request.\n\n";
+                };
+            
+                return ws;
+            }
+            
+            // Function to update console
+            function updateConsole(message) {
+                const consoleElement = document.getElementById('console');
+                consoleElement.textContent += message + "\n";
+                consoleElement.scrollTop = consoleElement.scrollHeight; // Auto-scroll
+            }
+            
+            // Function to get form values
+            function getFormValues() {
+                return {
+                    platform: encodeURIComponent(document.getElementById('platform').value.split('/').join('%0A')),
+                    pythonVersion: document.getElementById('python_version').value,
+                    requirements: document.getElementById('requirements').value
+                };
+            }
+            
+            function check_vulnerabilities() {
+                const { requirements } = getFormValues();
+                const url = `ws://${window.location.host}/ws/vulnerability-check/${encodeURIComponent(requirements)}`;
+                
+                setupWebSocket(url, updateConsole);
+            }
+            
+            function submit_form() {
+                const { platform, pythonVersion, requirements } = getFormValues();
+                const encodedRequirements = requirements.split('\n').join('%0A'); // URL encode newline
+                const url = `ws://${window.location.host}/ws/console/${platform}/${pythonVersion}/${encodedRequirements}`;
+                
+                setupWebSocket(url, function(message) {
+                    if (message.startsWith('/download/')) {
+                        const downloadLink = document.getElementById('download-link');
+                        downloadLink.setAttribute('href', window.location.origin + message);
+                        downloadLink.style.display = 'block';
+                    } else {
+                        updateConsole(message);
+                    }
+                });
+            }
+            
+            // Prevent form submission to allow WebSocket processing
+            document.getElementById('form').onsubmit = function(event) {
+                event.preventDefault();
+            };
+            </script>
+    </div>
+</body>
+</html>

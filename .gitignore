@@ -3,3 +3,12 @@ downloads/*
 src
 __pycache__
 venv/*
+=======
+tmp/*
+home/*
+venv/*
+download/*
+__pycache__
+requirements.zip
+downloads/*
+celerybeat-schedule*
