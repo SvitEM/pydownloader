@@ -8,7 +8,7 @@ RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* && \
 # Define the Python version as a build argument, defaulting to Python 3.10 if not specified
 ARG PYTHON_VERSION=3.10.12
 ENV PYTON_VERSION=${PYTHON_VERSION}
-ARG OPENSSL_VERSION=1.1.1w
+ARG OPENSSL_VERSION=1.1.1
 
 # Install dependencies required to build Python and OpenSSL
 RUN yum -y update && \
